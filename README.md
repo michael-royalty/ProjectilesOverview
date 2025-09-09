@@ -5,11 +5,8 @@ Developed with Unreal Engine 5
 Blueprints for the various spawning methods can be found under Content/Tutorial/
 
 How to test:
-
 Click on BP_Spawner in the outliner
-
-Edit anyhe settings to change how many projectiles will be spawned.
-
+Edit the settings to change how many projectiles will be spawned.
 Change the Projectile Manager setting to one of 8 options:
 * BP_Turret_1_Destroy
   * Spawns projectiles every time.
@@ -40,7 +37,5 @@ Change the Projectile Manager setting to one of 8 options:
 * BP_Turret_5a_Data_Niagara_CPP
   * Same as above, but in C++
   * Code is in DataDrivenProjectile_ISM.h/cpp
-
 The PCG will refresh and initialize the selected spawner and settings.
-
 Press play and observe results.
