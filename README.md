@@ -20,5 +20,7 @@ The PCG will refresh and initialize the selected spawner and settings.
 Press play and observe results.
 
 BP_Turret_3a_TraceNiagara_CPP is based on TraceProjectile_Niagara.h/cpp
+
 BP_Turret_4a_Data_ISM_CPP is based on DataDrivenProjectile_ISM.h/cpp
+
 BP_Turret_5a_Data_Niagara_CPP is based on DataDrivenProjectile_Niagara.h/cpp
