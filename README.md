@@ -2,7 +2,7 @@
 
 Developed with Unreal Engine 5
 
-Spawning methods can be found under Content/Tutorial/
+Blueprints for the various spawning methods can be found under Content/Tutorial/
 
 How to test:
 Click on BP_Spawner in the outliner
