@@ -39,7 +39,7 @@ Change the Projectile Manager setting to one of 8 options:
   * On impact, instructs Niagara via user array to destroy that projectile vfx
 * BP_Turret_5a_Data_Niagara_CPP
   * Same as above, but in C++
-  * Code is in DataDrivenProjectile_ISM.h/cpp
+  * Code is in DataDrivenProjectile_Niagara.h/cpp
 
 The PCG will refresh and initialize the selected spawner and settings.
 
