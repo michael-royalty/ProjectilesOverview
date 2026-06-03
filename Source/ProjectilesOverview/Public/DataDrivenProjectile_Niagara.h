@@ -3,32 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "TurretBase.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
-#include "NiagaraDataChannelAccessor.h"
+#include "NiagaraDataChannel.h"
 #include "DataDrivenProjectile_Niagara.generated.h"
 
 /**
  *
  */
 
-struct FDataDrivenProjectileDataChannelReader : public FNDCReaderBase
-{
-	// This macro gives us a fast data channel reader
-	NDCVarReader(int32, NiagaraIndex);
-};
-
-struct FDataDrivenProjectileDataChannelWriter : public FNDCWriterBase
-{
-	// This macro gives us a fast data channel writer
-	NDCVarWriter(int32, NiagaraIndex);
-	NDCVarWriter(FNiagaraPosition, MuzzleLocation);
-	NDCVarWriter(FVector, ProjectileVelocity);
-};
-
 UCLASS()
-class PROJECTILESOVERVIEW_API ADataDrivenProjectile_Niagara : public AActor
+class PROJECTILESOVERVIEW_API ADataDrivenProjectile_Niagara : public ATurretBase
 {
 	GENERATED_BODY()
 
@@ -37,21 +23,20 @@ class PROJECTILESOVERVIEW_API ADataDrivenProjectile_Niagara : public AActor
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VFX", meta = (AllowPrivateAccess = "true"))
 	UNiagaraComponent* NiagaraComponent;
 
-	UFUNCTION(BlueprintCallable, Category = "Data Driven Projectile")
-	void CreateProjectile(
-		UNiagaraDataChannelAsset* DataChannelAsset,
+	bool BatchCreateProjectiles_Implementation(
+		const int ProjectileCount,
 		const TArray<FVector>& MuzzleLocations,
 		const TArray<FVector>& MuzzleDirections,
 		float MuzzleVelocity,
 		int32 Count,
-		float ConeHalfAngle);
+		float ConeHalfAngle) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Data Driven Projectile")
 	void UpdateProjectiles(float DeltaSeconds);
 
 	void RetireProjectile(int32 Index);
 
-	TArray<int32> GetNiagaraIndexesFromPool(int32 NumIndexes);
+	TArrayView<int32> GetNiagaraIndexesFromPool(int32 NumIndexes);
 
 	UFUNCTION(BlueprintCallable, Category = "Data Driven Projectile")
 	void ReadDeadParticles(const FNiagaraDataChannelUpdateContext& Context);
@@ -60,6 +45,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup", meta = (ExposeOnSpawn = true))
 	AActor* Player;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	UNiagaraDataChannelAsset* DataChannelAsset;
 
 private:
 
@@ -70,4 +58,7 @@ private:
 	TArray<int32> PooledIndexes;
 	TArray<int32> NiagaraIndexes;
 	int32 NextNiagaraIndex = 0;
+
+	TArray<int32> PooledNiagaraIndexes;
+	int32 PooledNiagaraIndexesCount = 0;
 };

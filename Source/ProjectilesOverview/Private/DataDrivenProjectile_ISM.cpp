@@ -1,6 +1,5 @@
 // Copyright Michael Royalty. All Rights Reserved.
 
-
 #include "DataDrivenProjectile_ISM.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -13,21 +12,22 @@ ADataDrivenProjectile_ISM::ADataDrivenProjectile_ISM()
 	ISMComponent->bAutoActivate = true;
 }
 
-void ADataDrivenProjectile_ISM::CreateProjectile(
+bool ADataDrivenProjectile_ISM::BatchCreateProjectiles_Implementation(
+	const int ProjectileCount,
 	const TArray<FVector>& MuzzleLocations,
 	const TArray<FVector>& MuzzleDirections,
 	float MuzzleVelocity,
 	int32 Count,
 	float ConeHalfAngle)
 {
-	if (Count <= 0 || MuzzleLocations.Num() == 0 || MuzzleDirections.Num() == 0)
-		return;
+	if (ProjectileCount <= 0 || Count <= 0 || MuzzleLocations.Num() == 0 || MuzzleDirections.Num() == 0)
+		return false;
 
 	// Replace this age with your own max projectile age or max distance
 	const float MaxAge = 3.0f;
 	const float TargetAge = GetWorld()->GetTimeSeconds() + MaxAge;
 
-	const int32 TotalProjectiles = MuzzleLocations.Num() * Count;
+	const int32 TotalProjectiles = ProjectileCount * Count;
 
 	const int32 NumToReserve = Transforms.Num() + TotalProjectiles;
 
@@ -35,7 +35,7 @@ void ADataDrivenProjectile_ISM::CreateProjectile(
 	Velocities.Reserve(NumToReserve);
 	Ages.Reserve(NumToReserve);
 
-	for (int ShotIndex = 0; ShotIndex < MuzzleLocations.Num(); ++ShotIndex)
+	for (int ShotIndex = 0; ShotIndex < ProjectileCount; ++ShotIndex)
 	{
 		const FVector MuzzleLocation = MuzzleLocations[ShotIndex];
 		const FVector MuzzleDirection = MuzzleDirections[ShotIndex];
@@ -51,6 +51,8 @@ void ADataDrivenProjectile_ISM::CreateProjectile(
 			Ages.Add(TargetAge);
 		}
 	}
+
+	return true;
 }
 
 void ADataDrivenProjectile_ISM::UpdateProjectiles(float DeltaSeconds)

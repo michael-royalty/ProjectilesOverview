@@ -1,7 +1,7 @@
 // Copyright Michael Royalty. All Rights Reserved.
 
 #include "DataDrivenProjectile_Niagara.h"
-#include "NiagaraDataChannel.h"
+#include "../ProjectilesOverview.h"
 #include "NiagaraDataChannelHandler.h"
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
 #include "NiagaraTypes.h"
@@ -15,16 +15,16 @@ ADataDrivenProjectile_Niagara::ADataDrivenProjectile_Niagara()
 	NiagaraComponent->bAutoActivate = true;
 }
 
-void ADataDrivenProjectile_Niagara::CreateProjectile(
-	UNiagaraDataChannelAsset* DataChannelAsset,
+bool ADataDrivenProjectile_Niagara::BatchCreateProjectiles_Implementation(
+	const int ProjectileCount,
 	const TArray<FVector>& MuzzleLocations,
 	const TArray<FVector>& MuzzleDirections,
 	float MuzzleVelocity,
 	int32 Count,
 	float ConeHalfAngle)
 {
-	if (Count <= 0 || MuzzleLocations.Num() == 0 || MuzzleDirections.Num() == 0)
-		return;
+	if (ProjectileCount <= 0 || Count <= 0 || MuzzleLocations.Num() == 0 || MuzzleDirections.Num() == 0)
+		return false;
 
 	// Replace this age with your own max projectile age
 	const float MaxAge = 3.0f;
@@ -33,8 +33,8 @@ void ADataDrivenProjectile_Niagara::CreateProjectile(
 	// Used for direct array writing to Niagara
 	const FName KillWriteName = ("KillAges");
 
-	const int NumShots = FMath::Min(MuzzleLocations.Num(), MuzzleDirections.Num());
-	const int32 TotalProjectiles = MuzzleLocations.Num() * Count;
+	const int NumShots = ProjectileCount;
+	const int32 TotalProjectiles = ProjectileCount * Count;
 
 	UNiagaraDataChannel* DataChannel = nullptr;
 
@@ -54,7 +54,7 @@ void ADataDrivenProjectile_Niagara::CreateProjectile(
 		/* bVisibleToGPU  = */ false))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("WriteDestructionDataChannel: Failed to begin write."));
-		return;
+		return false;
 	}
 
 	const int32 NumToReserve = Locations.Num() + TotalProjectiles;
@@ -62,9 +62,9 @@ void ADataDrivenProjectile_Niagara::CreateProjectile(
 	Velocities.Reserve(NumToReserve);
 	Ages.Reserve(NumToReserve);
 
-	const TArray<int32> NewIndexes = GetNiagaraIndexesFromPool(MuzzleLocations.Num() * Count);
+	const TArrayView<int32> NewIndexes = GetNiagaraIndexesFromPool(ProjectileCount * Count);
 
-	for (int ShotIndex = 0; ShotIndex < MuzzleLocations.Num(); ++ShotIndex)
+	for (int ShotIndex = 0; ShotIndex < ProjectileCount; ++ShotIndex)
 	{
 		const FVector MuzzleLocation = MuzzleLocations[ShotIndex];
 		const FVector MuzzleDirection = MuzzleDirections[ShotIndex];
@@ -102,6 +102,8 @@ void ADataDrivenProjectile_Niagara::CreateProjectile(
 	Writer.EndWrite(); // Always call this if not using FNDCScopedWriter
 
 	NiagaraIndexes.Append(NewIndexes);
+
+	return true;
 }
 
 void ADataDrivenProjectile_Niagara::UpdateProjectiles(float DeltaSeconds)
@@ -217,41 +219,28 @@ void ADataDrivenProjectile_Niagara::RetireProjectile(int32 Index)
 	NiagaraIndexes.Pop();
 }
 
-TArray<int32> ADataDrivenProjectile_Niagara::GetNiagaraIndexesFromPool(int32 NumIndexes)
+TArrayView<int32> ADataDrivenProjectile_Niagara::GetNiagaraIndexesFromPool(int32 NumIndexes)
 {
-	TArray<int32> ReturnValue;
-	const int32 NumPooled = PooledIndexes.Num();
-	const int32 NumAbovePool = FMath::Max(NumIndexes - NumPooled, 0);
+	const int32 NumAbovePool = FMath::Max(NumIndexes - PooledNiagaraIndexesCount, 0);
 
-	if (NumAbovePool == 0)
+	if (NumAbovePool > 0)
 	{
-		ReturnValue.Reserve(NumIndexes);
+		if (NumIndexes > PooledNiagaraIndexes.Num())
+			PooledNiagaraIndexes.SetNumUninitialized(NumIndexes);
 
-		const int32 NewSize = NumPooled - NumIndexes;
+		std::iota(PooledNiagaraIndexes.GetData() + PooledNiagaraIndexesCount,
+			PooledNiagaraIndexes.GetData() + NumIndexes,
+			NextNiagaraIndex);
 
-		for (int32 i = NewSize; i < PooledIndexes.Num(); ++i)
-		{
-			ReturnValue.Add(PooledIndexes[i]);
-		}
-
-		PooledIndexes.SetNum(NewSize, EAllowShrinking::No);
+		PooledNiagaraIndexesCount = 0;
+		NextNiagaraIndex += NumAbovePool;
 	}
 	else
 	{
-		ReturnValue = PooledIndexes;
-		ReturnValue.SetNumUninitialized(NumIndexes);
-
-		// Incrementally update, IE if NextNiagaraIndex is 9, we'll set the values from InitialBatch to NumIndexes to 9,10,11,12,13 etc.
-		std::iota(ReturnValue.GetData() + NumPooled, ReturnValue.GetData() + NumIndexes, NextNiagaraIndex);
-
-		// Note the highest pool index we've used
-		NextNiagaraIndex += NumAbovePool;
-
-		// Clear pool
-		PooledIndexes.Reset();
+		PooledNiagaraIndexesCount -= NumIndexes;
 	}
 
-	return ReturnValue;
+	return TArrayView<int32>(PooledNiagaraIndexes.GetData() + PooledNiagaraIndexesCount, NumIndexes);
 }
 
 void ADataDrivenProjectile_Niagara::ReadDeadParticles(const FNiagaraDataChannelUpdateContext& Context)
@@ -283,21 +272,27 @@ void ADataDrivenProjectile_Niagara::ReadDeadParticles(const FNiagaraDataChannelU
 
 	const int32 TotalNDCCount = Reader.Num();
 
-	const int32 Count = Context.NewElementCount;
-	const int32 StartIndex = Context.FirstNewDataIndex;
-	const int32 EndIndex = Context.LastNewDataIndex;
+	const int32 NewNDCCount = Context.NewElementCount;
+	const int32 StartNDCIndex = Context.FirstNewDataIndex;
+	const int32 EndNDCIndex = Context.LastNewDataIndex;
 
-	TArray<int32> ReturnIndexes;
-	ReturnIndexes.Reserve(Count);
+	const int32 NewPooledIndexesCount = NewNDCCount + PooledNiagaraIndexesCount;
 
-	for (int i = StartIndex; i <= EndIndex; ++i)
+	if (NewPooledIndexesCount > PooledNiagaraIndexes.Num())
+		PooledNiagaraIndexes.SetNumUninitialized(NewPooledIndexesCount);
+
+	for (int i = StartNDCIndex; i <= EndNDCIndex; ++i)
 	{
 		int32 NiagaraIndex;
 
 		if (Reader.ReadNiagaraIndex(i, NiagaraIndex))
-			ReturnIndexes.Add(NiagaraIndex);
+		{
+			const int32 Index = i + PooledNiagaraIndexesCount;
+			PooledNiagaraIndexes[Index] = NiagaraIndex;
+		}
 	}
 
-	if (!ReturnIndexes.IsEmpty())
-		PooledIndexes.Append(ReturnIndexes);
+	Reader.EndRead();
+
+	PooledNiagaraIndexesCount = NewPooledIndexesCount;
 }

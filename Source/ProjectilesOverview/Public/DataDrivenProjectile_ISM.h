@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "TurretBase.h"
 #include "DataDrivenProjectile_ISM.generated.h"
 
 /**
  *
  */
 UCLASS()
-class PROJECTILESOVERVIEW_API ADataDrivenProjectile_ISM : public AActor
+class PROJECTILESOVERVIEW_API ADataDrivenProjectile_ISM : public ATurretBase
 {
 	GENERATED_BODY()
 
@@ -26,8 +26,8 @@ public:
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "Pool Manager")
-	void CreateProjectile(
+	bool BatchCreateProjectiles_Implementation(
+		const int ProjectileCount,
 		const TArray<FVector>& MuzzleLocations,
 		const TArray<FVector>& MuzzleDirections,
 		float MuzzleVelocity,

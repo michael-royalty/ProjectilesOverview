@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright Michael Royalty. All Rights Reserved.
 
 #include "ProjectilesOverview.h"
 #include "Modules/ModuleManager.h"

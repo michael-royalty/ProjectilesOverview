@@ -3,34 +3,29 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "TurretBase.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
-#include "NiagaraDataChannelAccessor.h"
+#include "NiagaraDataChannel.h"
 #include "TraceProjectile_Niagara.generated.h"
 
-struct FTraceProjectileDataChannelWriter : public FNDCWriterBase
-{
-	// This macro gives us a fast data channel writer
-	NDCVarWriter(FNiagaraPosition, MuzzleLocation);
-	NDCVarWriter(FVector4, ProjectileVelocityAndLifespan);
-};
-
 UCLASS()
-class PROJECTILESOVERVIEW_API ATraceProjectile_Niagara : public AActor
+class PROJECTILESOVERVIEW_API ATraceProjectile_Niagara : public ATurretBase
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 
 	ATraceProjectile_Niagara();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VFX", meta = (AllowPrivateAccess = "true"))
 	UNiagaraComponent* NiagaraComponent;
 
-	UFUNCTION(BlueprintCallable, Category = "Tracehit Projectile")
-	void CreateProjectile(
-		UNiagaraDataChannelAsset* DataChannelAsset,
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	UNiagaraDataChannelAsset* DataChannelAsset;
+
+	bool BatchCreateProjectiles_Implementation(
+		const int ProjectileCount,
 		const TArray<FVector>& MuzzleLocations,
 		const TArray<FVector>& MuzzleDirections,
 		float MuzzleVelocity,

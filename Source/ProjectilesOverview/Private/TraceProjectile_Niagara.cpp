@@ -1,7 +1,7 @@
 // Copyright Michael Royalty. All Rights Reserved.
 
 #include "TraceProjectile_Niagara.h"
-#include "NiagaraDataChannel.h"
+#include "../ProjectilesOverview.h"
 #include "NiagaraDataChannelHandler.h"
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
 #include "NiagaraTypes.h"
@@ -10,51 +10,51 @@
 
 ATraceProjectile_Niagara::ATraceProjectile_Niagara()
 {
-	NiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComponent"));
-	NiagaraComponent->SetupAttachment(RootComponent);
-	NiagaraComponent->bAutoActivate = true;
+    NiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComponent"));
+    NiagaraComponent->SetupAttachment(RootComponent);
+    NiagaraComponent->bAutoActivate = true;
 }
 
-void ATraceProjectile_Niagara::CreateProjectile(
-	UNiagaraDataChannelAsset* DataChannelAsset,
-	const TArray<FVector>& MuzzleLocations,
-	const TArray<FVector>& MuzzleDirections,
-	float MuzzleVelocity,
-	int32 Count,
-	float ConeHalfAngle)
+bool ATraceProjectile_Niagara::BatchCreateProjectiles_Implementation(
+    const int ProjectileCount,
+    const TArray<FVector>& MuzzleLocations,
+    const TArray<FVector>& MuzzleDirections,
+    float MuzzleVelocity,
+    int32 Count,
+    float ConeHalfAngle)
 {
-    if (MuzzleLocations.IsEmpty() || MuzzleDirections.IsEmpty() || Count <= 0)
+    if (ProjectileCount <= 0 || MuzzleLocations.IsEmpty() || MuzzleDirections.IsEmpty() || Count <= 0)
     {
-        return;
+        return false;
     }
 
     // Replace this age with your own max projectile age
-	const float MaxAge = 3.0f;
+    const float MaxAge = 3.0f;
 
-    const int32 NumShots = MuzzleLocations.Num();
-    const int32 NumProjectiles = NumShots * Count;
+    const int32 NumShots = ProjectileCount;
+    const int32 NumProjectiles = ProjectileCount * Count;
 
     UNiagaraDataChannel* DataChannel = nullptr;
 
-	if (DataChannelAsset)
-	{
-		DataChannel = DataChannelAsset->Get();
-	}
+    if (DataChannelAsset)
+    {
+        DataChannel = DataChannelAsset->Get();
+    }
 
-	// For island-based data channels. Not using, so we can leave everything default/uninitialized
-	FNiagaraDataChannelSearchParameters SearchParams;
-	SearchParams.Location = FVector::ZeroVector;
+    // For island-based data channels. Not using, so we can leave everything default/uninitialized
+    FNiagaraDataChannelSearchParameters SearchParams;
+    SearchParams.Location = FVector::ZeroVector;
 
-	FTraceProjectileDataChannelWriter Writer;
+    FTraceProjectileDataChannelWriter Writer;
 
-	if (!Writer.BeginWrite(this, DataChannel, SearchParams, NumProjectiles,
-		/* bVisibleToGame = */ false,
-		/* bVisibleToCPU  = */ true,
-		/* bVisibleToGPU  = */ false))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Write Data Channel: Failed to begin write."));
-		return;
-	}
+    if (!Writer.BeginWrite(this, DataChannel, SearchParams, NumProjectiles,
+        /* bVisibleToGame = */ false,
+        /* bVisibleToCPU  = */ true,
+        /* bVisibleToGPU  = */ false))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Write Data Channel: Failed to begin write."));
+        return false;
+    }
 
     // Replace with your own projectile radius
     const FCollisionShape SphereCollision = FCollisionShape::MakeSphere(15.0f);
@@ -108,4 +108,6 @@ void ATraceProjectile_Niagara::CreateProjectile(
         },
         EParallelForFlags::None
     );
+
+    return true;
 }
